@@ -1,12 +1,49 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Utensils, Bell, Shield, Smartphone, Globe, Mail } from "lucide-react";
+import { Bell, Smartphone, Globe, Mail, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: "Le Petit Bistro",
+    email: "hello@lepetitbistro.com",
+    phone: "+1 (555) 000-0000",
+    website: "https://lepetitbistro.com",
+    address: "123 Gourmet St, Foodie City, FC 12345",
+  });
+
+  const [notifications, setNotifications] = useState({
+    newMember: true,
+    highValue: true,
+    rewardRedemption: true,
+    weeklyReport: true,
+  });
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setIsSaving(false);
+    toast({ 
+      title: "Settings saved",
+      description: "Your restaurant profile has been updated.",
+    });
+  };
+
+  const handleNotificationChange = (key: keyof typeof notifications) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+    toast({ 
+      title: "Notification preference updated",
+    });
+  };
+
   return (
     <Layout>
       <header className="mb-8">
@@ -33,28 +70,57 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="rest-name">Restaurant Name</Label>
-                    <Input id="rest-name" defaultValue="Le Petit Bistro" />
+                    <Input 
+                      id="rest-name" 
+                      value={profileData.name} 
+                      onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="rest-email">Business Email</Label>
-                    <Input id="rest-email" defaultValue="hello@lepetitbistro.com" />
+                    <Input 
+                      id="rest-email" 
+                      value={profileData.email}
+                      onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="rest-phone">Phone Number</Label>
-                    <Input id="rest-phone" defaultValue="+1 (555) 000-0000" />
+                    <Input 
+                      id="rest-phone" 
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="rest-website">Website URL</Label>
-                    <Input id="rest-website" defaultValue="https://lepetitbistro.com" />
+                    <Input 
+                      id="rest-website" 
+                      value={profileData.website}
+                      onChange={(e) => setProfileData({ ...profileData, website: e.target.value })}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rest-address">Address</Label>
-                  <Input id="rest-address" defaultValue="123 Gourmet St, Foodie City, FC 12345" />
+                  <Input 
+                    id="rest-address" 
+                    value={profileData.address}
+                    onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                  />
                 </div>
                 <div className="flex justify-end">
-                  <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium shadow-sm hover:bg-primary/90 transition-all">
-                    Save Changes
+                  <button 
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium shadow-sm hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSaving ? "Saving..." : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Save Changes
+                      </>
+                    )}
                   </button>
                 </div>
               </CardContent>
@@ -70,12 +136,12 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-6">
               {[
-                { title: "New Member Signup", desc: "Notify when a new customer joins the loyalty program.", icon: Mail },
-                { title: "High Value Transaction", desc: "Alert when a transaction exceeds $500.", icon: Bell },
-                { title: "Reward Redemption", desc: "Notify staff when a customer redeems a reward.", icon: Smartphone },
-                { title: "Weekly Report", desc: "Receive a summary of CRM performance every Monday.", icon: Globe },
+                { key: "newMember" as const, title: "New Member Signup", desc: "Notify when a new customer joins the loyalty program.", icon: Mail },
+                { key: "highValue" as const, title: "High Value Transaction", desc: "Alert when a transaction exceeds $500.", icon: Bell },
+                { key: "rewardRedemption" as const, title: "Reward Redemption", desc: "Notify staff when a customer redeems a reward.", icon: Smartphone },
+                { key: "weeklyReport" as const, title: "Weekly Report", desc: "Receive a summary of CRM performance every Monday.", icon: Globe },
               ].map((item) => (
-                <div key={item.title} className="flex items-center justify-between py-4 border-b border-border/50 last:border-0">
+                <div key={item.key} className="flex items-center justify-between py-4 border-b border-border/50 last:border-0">
                   <div className="flex items-center gap-4">
                     <div className="p-2 bg-muted rounded-lg">
                       <item.icon className="w-5 h-5 text-muted-foreground" />
@@ -85,9 +151,81 @@ export default function Settings() {
                       <p className="text-xs text-muted-foreground">{item.desc}</p>
                     </div>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={notifications[item.key]} 
+                    onCheckedChange={() => handleNotificationChange(item.key)}
+                  />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle>Security Settings</CardTitle>
+              <CardDescription>Manage your account security and access controls.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input id="current-password" type="password" placeholder="Enter current password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input id="new-password" type="password" placeholder="Enter new password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input id="confirm-password" type="password" placeholder="Confirm new password" />
+                </div>
+                <button 
+                  onClick={() => toast({ title: "Password updated successfully" })}
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium shadow-sm hover:bg-primary/90 transition-all"
+                >
+                  Update Password
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle>Integrations</CardTitle>
+              <CardDescription>Connect Loyalize with your existing tools and services.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {[
+                  { name: "Square POS", desc: "Sync transactions automatically", connected: true },
+                  { name: "Mailchimp", desc: "Email marketing automation", connected: false },
+                  { name: "Twilio", desc: "SMS notifications", connected: false },
+                ].map((integration) => (
+                  <div key={integration.name} className="flex items-center justify-between py-4 border-b border-border/50 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium">{integration.name}</p>
+                      <p className="text-xs text-muted-foreground">{integration.desc}</p>
+                    </div>
+                    <button 
+                      onClick={() => toast({ 
+                        title: integration.connected ? "Disconnected" : "Connected",
+                        description: `${integration.name} has been ${integration.connected ? "disconnected" : "connected"}.`
+                      })}
+                      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        integration.connected 
+                          ? "bg-muted text-muted-foreground hover:bg-muted/80" 
+                          : "bg-primary text-white hover:bg-primary/90"
+                      }`}
+                    >
+                      {integration.connected ? "Disconnect" : "Connect"}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

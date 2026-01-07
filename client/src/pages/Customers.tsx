@@ -3,21 +3,111 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, MoreHorizontal, Calendar, Loader2, Plus } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Filter, MoreHorizontal, Calendar, Loader2, Plus, Pencil, Trash2, Eye } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customersApi, type Customer } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Customers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSegment, setActiveSegment] = useState("all");
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", tier: "Silver", segment: "Occasional" });
+  
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: customersApi.getAll,
   });
+
+  const createMutation = useMutation({
+    mutationFn: customersApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setIsAddOpen(false);
+      setFormData({ name: "", email: "", phone: "", tier: "Silver", segment: "Occasional" });
+      toast({ title: "Customer added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to add customer", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Customer> }) => customersApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      setIsEditOpen(false);
+      setSelectedCustomer(null);
+      toast({ title: "Customer updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update customer", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: customersApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast({ title: "Customer deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete customer", variant: "destructive" });
+    },
+  });
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMutation.mutate({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || null,
+      tier: formData.tier,
+      segment: formData.segment,
+      visits: 0,
+      spend: "0",
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomer) return;
+    updateMutation.mutate({
+      id: selectedCustomer.id,
+      data: {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        tier: formData.tier,
+        segment: formData.segment,
+      },
+    });
+  };
+
+  const openEditDialog = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setFormData({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone || "",
+      tier: customer.tier,
+      segment: customer.segment,
+    });
+    setIsEditOpen(true);
+  };
 
   const segments = useMemo(() => {
     const uniqueSegments = ["All Customers", ...Array.from(new Set(customers.map(c => c.segment)))];
@@ -53,7 +143,7 @@ export default function Customers() {
     const baseClass = "px-2 py-1 rounded-full text-xs font-medium";
     switch(segment) {
       case "VIP": return `${baseClass} bg-purple-100 text-purple-700`;
-      case "High Spender": return `${baseClass} bg-emerald-100 text-emerald-700`;
+      case "High Spender": return `${baseClass} bg-blue-100 text-blue-700`;
       case "Regular": return `${baseClass} bg-blue-100 text-blue-700`;
       case "Growing": return `${baseClass} bg-amber-100 text-amber-700`;
       case "Occasional": return `${baseClass} bg-gray-100 text-gray-700`;
@@ -79,11 +169,127 @@ export default function Customers() {
           <h1 className="text-3xl font-heading font-bold text-foreground">Customers</h1>
           <p className="text-muted-foreground mt-1">Manage your loyalty members and view their detailed history.</p>
         </div>
-        <button className="bg-primary text-primary-foreground px-6 py-2 rounded-md font-medium shadow-md shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add Customer
-        </button>
+        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+          <DialogTrigger asChild>
+            <button className="bg-primary text-primary-foreground px-6 py-2 rounded-md font-medium shadow-md shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Customer
+            </button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Customer</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone (optional)</Label>
+                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tier</Label>
+                  <Select value={formData.tier} onValueChange={(v) => setFormData({ ...formData, tier: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Silver">Silver</SelectItem>
+                      <SelectItem value="Gold">Gold</SelectItem>
+                      <SelectItem value="Platinum">Platinum</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Segment</Label>
+                  <Select value={formData.segment} onValueChange={(v) => setFormData({ ...formData, segment: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="VIP">VIP</SelectItem>
+                      <SelectItem value="High Spender">High Spender</SelectItem>
+                      <SelectItem value="Regular">Regular</SelectItem>
+                      <SelectItem value="Growing">Growing</SelectItem>
+                      <SelectItem value="Occasional">Occasional</SelectItem>
+                      <SelectItem value="At Risk">At Risk</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <button type="button" className="px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted/50">Cancel</button>
+                </DialogClose>
+                <button type="submit" disabled={createMutation.isPending} className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                  {createMutation.isPending ? "Adding..." : "Add Customer"}
+                </button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </header>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name</Label>
+              <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input id="edit-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone (optional)</Label>
+              <Input id="edit-phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tier</Label>
+                <Select value={formData.tier} onValueChange={(v) => setFormData({ ...formData, tier: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Silver">Silver</SelectItem>
+                    <SelectItem value="Gold">Gold</SelectItem>
+                    <SelectItem value="Platinum">Platinum</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Segment</Label>
+                <Select value={formData.segment} onValueChange={(v) => setFormData({ ...formData, segment: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VIP">VIP</SelectItem>
+                    <SelectItem value="High Spender">High Spender</SelectItem>
+                    <SelectItem value="Regular">Regular</SelectItem>
+                    <SelectItem value="Growing">Growing</SelectItem>
+                    <SelectItem value="Occasional">Occasional</SelectItem>
+                    <SelectItem value="At Risk">At Risk</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <button type="button" className="px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted/50">Cancel</button>
+              </DialogClose>
+              <button type="submit" disabled={updateMutation.isPending} className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Segment Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
@@ -130,16 +336,6 @@ export default function Customers() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </div>
-            <div className="flex gap-2 w-full md:w-auto">
-              <button className="flex-1 md:flex-none flex items-center gap-2 px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted/50 transition-colors">
-                <Filter className="w-4 h-4" />
-                Filters
-              </button>
-              <button className="flex-1 md:flex-none flex items-center gap-2 px-4 py-2 border border-border rounded-md text-sm font-medium hover:bg-muted/50 transition-colors">
-                <Calendar className="w-4 h-4" />
-                Date Range
-              </button>
             </div>
           </div>
           
@@ -207,9 +403,30 @@ export default function Customers() {
                       {customer.lastVisit ? new Date(customer.lastVisit).toLocaleDateString() : "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <button className="p-2 hover:bg-muted rounded-full transition-colors opacity-0 group-hover:opacity-100">
-                        <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 hover:bg-muted rounded-full transition-colors">
+                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDialog(customer)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              if (confirm("Are you sure you want to delete this customer?")) {
+                                deleteMutation.mutate(customer.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </motion.tr>
                 ))}
