@@ -1,13 +1,12 @@
-import { pgTable, text, serial, integer, timestamp, decimal } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, varchar, serial, integer, timestamp, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  role: text("role").default("manager").notNull(),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
 });
 
 export const customers = pgTable("customers", {
@@ -26,7 +25,7 @@ export const customers = pgTable("customers", {
 export const activity = pgTable("activity", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").notNull(),
-  type: text("type").notNull(), // 'visit', 'reward', 'signup'
+  type: text("type").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).default("0"),
   rewardUsed: text("reward_used"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -40,12 +39,20 @@ export const tiers = pgTable("tiers", {
   benefits: text("benefits").array().notNull(),
 });
 
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+});
+
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, lastVisit: true });
 export const insertActivitySchema = createInsertSchema(activity).omit({ id: true, createdAt: true });
+export const insertTierSchema = createInsertSchema(tiers).omit({ id: true });
 
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
-export type Activity = typeof activity.$inferSelect;
-export type Tier = typeof tiers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Activity = typeof activity.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type Tier = typeof tiers.$inferSelect;
+export type InsertTier = z.infer<typeof insertTierSchema>;
