@@ -74,8 +74,8 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  /* Brand Primary: Vibrant Cyan Blue (matching Loyalize website) */
-  --primary: 200 85% 55%;
+  /* Brand Primary: Deep Cyan Blue (matching Loyalize website) */
+  --primary: 203 85% 48%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 210 40% 96.1%;
@@ -92,22 +92,22 @@
 
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 200 85% 55%;
+  --ring: 203 85% 48%;
 
   --radius: 0.75rem;
 
   /* Sidebar Colors - Dark Blue Theme */
   --sidebar: 215 28% 17%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 200 85% 55%;
+  --sidebar-primary: 203 85% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 217 33% 22%;
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-border: 217 33% 22%;
-  --sidebar-ring: 200 85% 55%;
+  --sidebar-ring: 203 85% 48%;
   
   /* Chart Colors */
-  --chart-1: 200 85% 55%; /* Primary Blue */
+  --chart-1: 203 85% 48%; /* Primary Blue */
   --chart-2: 173 58% 39%; /* Teal */
   --chart-3: 197 37% 24%; /* Dark Blue */
   --chart-4: 43 74% 66%;  /* Gold */
@@ -124,7 +124,7 @@
   --popover: 222 47% 11%;
   --popover-foreground: 210 40% 98%;
 
-  --primary: 200 85% 55%;
+  --primary: 203 85% 48%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 217 19% 27%;
@@ -141,7 +141,7 @@
 
   --border: 217 19% 27%;
   --input: 217 19% 27%;
-  --ring: 200 85% 55%;
+  --ring: 203 85% 48%;
   
   --sidebar: 217 19% 10%;
 }
