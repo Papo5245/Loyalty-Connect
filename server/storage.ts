@@ -72,8 +72,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCustomer(id: number): Promise<boolean> {
-    const result = await db.delete(customers).where(eq(customers.id, id));
-    return true;
+    const result = await db.delete(customers).where(eq(customers.id, id)).returning({ id: customers.id });
+    return result.length > 0;
   }
 
   async getActivities(limit = 10): Promise<Activity[]> {

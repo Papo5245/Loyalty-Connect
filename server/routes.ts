@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { insertCustomerSchema, insertActivitySchema, insertTierSchema } from "@shared/schema";
 import { z } from "zod";
 
+const idParamSchema = z.coerce.number().int().positive();
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -31,8 +33,11 @@ export async function registerRoutes(
 
   app.get("/api/customers/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const customer = await storage.getCustomer(id);
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const customer = await storage.getCustomer(parseResult.data);
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
       }
@@ -57,9 +62,12 @@ export async function registerRoutes(
 
   app.patch("/api/customers/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
       const updates = insertCustomerSchema.partial().parse(req.body);
-      const customer = await storage.updateCustomer(id, updates);
+      const customer = await storage.updateCustomer(parseResult.data, updates);
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
       }
@@ -74,8 +82,14 @@ export async function registerRoutes(
 
   app.delete("/api/customers/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      await storage.deleteCustomer(id);
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const deleted = await storage.deleteCustomer(parseResult.data);
+      if (!deleted) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete customer" });
@@ -85,7 +99,15 @@ export async function registerRoutes(
   // Activities
   app.get("/api/activities", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const limitParam = req.query.limit as string | undefined;
+      let limit = 10;
+      if (limitParam) {
+        const parsed = parseInt(limitParam, 10);
+        if (!Number.isFinite(parsed) || parsed < 1) {
+          return res.status(400).json({ error: "Invalid limit parameter" });
+        }
+        limit = parsed;
+      }
       const activities = await storage.getActivities(limit);
       res.json(activities);
     } catch (error) {
@@ -131,9 +153,12 @@ export async function registerRoutes(
 
   app.patch("/api/tiers/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid tier ID" });
+      }
       const updates = insertTierSchema.partial().parse(req.body);
-      const tier = await storage.updateTier(id, updates);
+      const tier = await storage.updateTier(parseResult.data, updates);
       if (!tier) {
         return res.status(404).json({ error: "Tier not found" });
       }

@@ -1,11 +1,70 @@
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { salesData, recentActivity, roiData, tiersData } from "@/lib/mockData";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, CreditCard, Award, ArrowUpRight, DollarSign, Calendar } from "lucide-react";
+import { TrendingUp, Users, Award, ArrowUpRight, DollarSign, Calendar, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { dashboardApi, customersApi, activitiesApi } from "@/lib/api";
+
+const salesData = [
+  { name: 'Mon', sales: 4000 },
+  { name: 'Tue', sales: 3000 },
+  { name: 'Wed', sales: 5000 },
+  { name: 'Thu', sales: 4500 },
+  { name: 'Fri', sales: 8000 },
+  { name: 'Sat', sales: 9500 },
+  { name: 'Sun', sales: 7000 },
+];
+
+const roiData = [
+  { month: 'Jan', cost: 1200, revenue: 8500 },
+  { month: 'Feb', cost: 1400, revenue: 9800 },
+  { month: 'Mar', cost: 1100, revenue: 10500 },
+  { month: 'Apr', cost: 1600, revenue: 12000 },
+];
 
 export default function Dashboard() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["dashboard", "stats"],
+    queryFn: dashboardApi.getStats,
+  });
+
+  const { data: customers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: customersApi.getAll,
+  });
+
+  const { data: activities } = useQuery({
+    queryKey: ["activities"],
+    queryFn: () => activitiesApi.getAll(5),
+  });
+
+  const tiersData = customers ? [
+    { name: 'Platinum', value: customers.filter(c => c.tier === 'Platinum').length, color: 'hsl(var(--primary))' },
+    { name: 'Gold', value: customers.filter(c => c.tier === 'Gold').length, color: 'hsl(173, 58%, 39%)' },
+    { name: 'Silver', value: customers.filter(c => c.tier === 'Silver').length, color: 'hsl(215.4, 16.3%, 46.9%)' },
+  ] : [];
+
+  const totalMembers = customers?.length || 0;
+
+  const recentActivity = activities?.map(a => {
+    const customer = customers?.find(c => c.id === a.customerId);
+    return {
+      ...a,
+      customerName: customer?.name || "Unknown Customer",
+    };
+  }) || [];
+
+  if (statsLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <header className="mb-8 flex justify-between items-end">
@@ -27,10 +86,10 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[
-          { title: "Total Revenue", value: "$124,592", trend: "+12.5%", icon: DollarSign, color: "text-emerald-500" },
-          { title: "Active Members", value: "2,543", trend: "+8.2%", icon: Users, color: "text-blue-500" },
-          { title: "Loyalty Visits", value: "1,205", trend: "+23.1%", icon: ArrowUpRight, color: "text-purple-500" },
-          { title: "Rewards Redeemed", value: "452", trend: "+5.4%", icon: Award, color: "text-amber-500" },
+          { title: "Total Revenue", value: `$${(stats?.totalRevenue || 0).toLocaleString()}`, trend: "+12.5%", icon: DollarSign, color: "text-emerald-500" },
+          { title: "Active Members", value: (stats?.activeMembers || 0).toLocaleString(), trend: "+8.2%", icon: Users, color: "text-blue-500" },
+          { title: "Loyalty Visits", value: (stats?.loyaltyVisits || 0).toLocaleString(), trend: "+23.1%", icon: ArrowUpRight, color: "text-purple-500" },
+          { title: "Rewards Redeemed", value: (stats?.rewardsRedeemed || 0).toString(), trend: "+5.4%", icon: Award, color: "text-amber-500" },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -114,7 +173,7 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-3xl font-bold">2.5k</span>
+                <span className="text-3xl font-bold">{totalMembers}</span>
                 <span className="text-sm text-muted-foreground">Members</span>
               </div>
             </div>
@@ -152,18 +211,22 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {recentActivity.map((activity, i) => (
+              {recentActivity.length > 0 ? recentActivity.map((act, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <div className={`w-2 h-2 mt-2 rounded-full ${activity.type === 'visit' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                  <div className={`w-2 h-2 mt-2 rounded-full ${act.type === 'visit' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
                   <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">{activity.customer}</p>
+                    <p className="text-sm font-medium leading-none">{act.customerName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {activity.type === 'visit' ? `Visited and spent $${activity.amount}` : `Redeemed ${activity.rewardUsed}`}
+                      {act.type === 'visit' ? `Visited and spent $${act.amount}` : `Redeemed ${act.rewardUsed}`}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">{activity.date.split(',')[0]}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(act.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+              )}
             </div>
           </CardContent>
         </Card>
