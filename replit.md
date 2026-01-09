@@ -69,6 +69,7 @@ Four main tables:
 
 ### Third-Party Services
 - **Session Storage**: `connect-pg-simple` for PostgreSQL-backed sessions
+- **WhatsApp Campaigns**: Visual prototype only. Requires Twilio integration for actual message sending. User dismissed the Twilio connector setup - will need to configure manually when ready.
 
 ### Key NPM Packages
 - **UI**: Full shadcn/ui component suite with Radix UI primitives
