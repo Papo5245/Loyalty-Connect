@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, BarChart3, Settings, LogOut, Award, Utensils, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Users, BarChart3, Settings, LogOut, Award, Utensils, MessageCircle, Grid3X3, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -8,6 +8,8 @@ export function Sidebar() {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Users, label: "Customers", href: "/customers" },
+    { icon: Grid3X3, label: "Tables", href: "/tables" },
+    { icon: Star, label: "Feedback", href: "/feedback" },
     { icon: MessageCircle, label: "Campaigns", href: "/campaigns" },
     { icon: BarChart3, label: "Analytics", href: "/analytics" },
     { icon: Award, label: "Loyalty Tiers", href: "/tiers" },
