@@ -3,10 +3,13 @@ import {
   type Customer, type InsertCustomer,
   type Activity, type InsertActivity,
   type Tier, type InsertTier,
-  users, customers, activity, tiers
+  type RestaurantTable, type InsertRestaurantTable,
+  type TableSession, type InsertTableSession,
+  type Feedback, type InsertFeedback,
+  users, customers, activity, tiers, restaurantTables, tableSessions, feedback
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -26,6 +29,26 @@ export interface IStorage {
   getTiers(): Promise<Tier[]>;
   createTier(tier: InsertTier): Promise<Tier>;
   updateTier(id: number, tier: Partial<InsertTier>): Promise<Tier | undefined>;
+  
+  getTables(): Promise<RestaurantTable[]>;
+  getTable(id: number): Promise<RestaurantTable | undefined>;
+  createTable(table: InsertRestaurantTable): Promise<RestaurantTable>;
+  updateTable(id: number, table: Partial<InsertRestaurantTable>): Promise<RestaurantTable | undefined>;
+  deleteTable(id: number): Promise<boolean>;
+  
+  getTableSessions(activeOnly?: boolean): Promise<TableSession[]>;
+  createTableSession(session: InsertTableSession): Promise<TableSession>;
+  updateTableSession(id: number, updates: Partial<TableSession>): Promise<TableSession | undefined>;
+  
+  getFeedback(): Promise<Feedback[]>;
+  createFeedback(fb: InsertFeedback): Promise<Feedback>;
+  getFeedbackStats(): Promise<{
+    avgRating: number;
+    totalReviews: number;
+    positivePercent: number;
+    byChannel: { channel: string; count: number }[];
+    byRating: { rating: number; count: number }[];
+  }>;
   
   getDashboardStats(): Promise<{
     totalRevenue: number;
@@ -113,6 +136,95 @@ export class DatabaseStorage implements IStorage {
   async updateTier(id: number, updates: Partial<InsertTier>): Promise<Tier | undefined> {
     const [tier] = await db.update(tiers).set(updates).where(eq(tiers.id, id)).returning();
     return tier;
+  }
+
+  async getTables(): Promise<RestaurantTable[]> {
+    return db.select().from(restaurantTables).orderBy(restaurantTables.name);
+  }
+
+  async getTable(id: number): Promise<RestaurantTable | undefined> {
+    const [table] = await db.select().from(restaurantTables).where(eq(restaurantTables.id, id));
+    return table;
+  }
+
+  async createTable(insertTable: InsertRestaurantTable): Promise<RestaurantTable> {
+    const [table] = await db.insert(restaurantTables).values(insertTable).returning();
+    return table;
+  }
+
+  async updateTable(id: number, updates: Partial<InsertRestaurantTable>): Promise<RestaurantTable | undefined> {
+    const [table] = await db.update(restaurantTables).set(updates).where(eq(restaurantTables.id, id)).returning();
+    return table;
+  }
+
+  async deleteTable(id: number): Promise<boolean> {
+    const result = await db.delete(restaurantTables).where(eq(restaurantTables.id, id)).returning({ id: restaurantTables.id });
+    return result.length > 0;
+  }
+
+  async getTableSessions(activeOnly = false): Promise<TableSession[]> {
+    if (activeOnly) {
+      return db.select().from(tableSessions).where(eq(tableSessions.status, 'seated')).orderBy(desc(tableSessions.startedAt));
+    }
+    return db.select().from(tableSessions).orderBy(desc(tableSessions.startedAt));
+  }
+
+  async createTableSession(insertSession: InsertTableSession): Promise<TableSession> {
+    const [session] = await db.insert(tableSessions).values(insertSession).returning();
+    await db.update(restaurantTables).set({ status: 'occupied', currentCustomerId: insertSession.customerId }).where(eq(restaurantTables.id, insertSession.tableId));
+    return session;
+  }
+
+  async updateTableSession(id: number, updates: Partial<TableSession>): Promise<TableSession | undefined> {
+    const [session] = await db.update(tableSessions).set(updates).where(eq(tableSessions.id, id)).returning();
+    if (session && updates.status === 'cleared') {
+      await db.update(restaurantTables).set({ status: 'available', currentCustomerId: null }).where(eq(restaurantTables.id, session.tableId));
+    }
+    return session;
+  }
+
+  async getFeedback(): Promise<Feedback[]> {
+    return db.select().from(feedback).orderBy(desc(feedback.createdAt));
+  }
+
+  async createFeedback(insertFeedback: InsertFeedback): Promise<Feedback> {
+    const [fb] = await db.insert(feedback).values(insertFeedback).returning();
+    return fb;
+  }
+
+  async getFeedbackStats(): Promise<{
+    avgRating: number;
+    totalReviews: number;
+    positivePercent: number;
+    byChannel: { channel: string; count: number }[];
+    byRating: { rating: number; count: number }[];
+  }> {
+    const [avgResult] = await db.select({
+      avg: sql<string>`COALESCE(AVG(${feedback.rating}), 0)`,
+      count: sql<number>`COUNT(*)`,
+      positive: sql<number>`COUNT(*) FILTER (WHERE ${feedback.rating} >= 4)`
+    }).from(feedback);
+
+    const byChannelResult = await db.select({
+      channel: feedback.channel,
+      count: sql<number>`COUNT(*)`
+    }).from(feedback).groupBy(feedback.channel);
+
+    const byRatingResult = await db.select({
+      rating: feedback.rating,
+      count: sql<number>`COUNT(*)`
+    }).from(feedback).groupBy(feedback.rating).orderBy(feedback.rating);
+
+    const total = avgResult?.count || 0;
+    const positive = avgResult?.positive || 0;
+
+    return {
+      avgRating: parseFloat(avgResult?.avg || "0"),
+      totalReviews: total,
+      positivePercent: total > 0 ? Math.round((positive / total) * 100) : 0,
+      byChannel: byChannelResult.map(r => ({ channel: r.channel, count: Number(r.count) })),
+      byRating: byRatingResult.map(r => ({ rating: r.rating, count: Number(r.count) })),
+    };
   }
 
   async getDashboardStats(): Promise<{

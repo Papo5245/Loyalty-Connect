@@ -105,3 +105,85 @@ export const tiersApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// Restaurant Tables
+export interface RestaurantTable {
+  id: number;
+  name: string;
+  capacity: number;
+  location: string;
+  status: string;
+  currentCustomerId: number | null;
+  notes: string | null;
+}
+
+export const tablesApi = {
+  getAll: () => fetchApi<RestaurantTable[]>("/tables"),
+  create: (data: Omit<RestaurantTable, "id">) =>
+    fetchApi<RestaurantTable>("/tables", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<RestaurantTable>) =>
+    fetchApi<RestaurantTable>(`/tables/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    fetchApi<void>(`/tables/${id}`, {
+      method: "DELETE",
+    }),
+};
+
+// Table Sessions
+export interface TableSession {
+  id: number;
+  tableId: number;
+  customerId: number | null;
+  partySize: number;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+export const tableSessionsApi = {
+  getAll: (activeOnly?: boolean) => fetchApi<TableSession[]>(`/table-sessions${activeOnly ? '?active=true' : ''}`),
+  create: (data: Omit<TableSession, "id" | "startedAt" | "endedAt">) =>
+    fetchApi<TableSession>("/table-sessions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<TableSession>) =>
+    fetchApi<TableSession>(`/table-sessions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+};
+
+// Feedback
+export interface Feedback {
+  id: number;
+  customerId: number | null;
+  rating: number;
+  channel: string;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface FeedbackStats {
+  avgRating: number;
+  totalReviews: number;
+  positivePercent: number;
+  byChannel: { channel: string; count: number }[];
+  byRating: { rating: number; count: number }[];
+}
+
+export const feedbackApi = {
+  getAll: () => fetchApi<Feedback[]>("/feedback"),
+  create: (data: Omit<Feedback, "id" | "createdAt">) =>
+    fetchApi<Feedback>("/feedback", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getStats: () => fetchApi<FeedbackStats>("/feedback/stats"),
+};
