@@ -55,11 +55,14 @@ Preferred communication style: Simple, everyday language.
 - **Component Aliases**: Path aliases (`@/`, `@shared/`) for clean imports
 
 ### Database Schema
-Four main tables:
+Seven main tables:
 - `users`: Authentication (id, username, password)
 - `customers`: Customer profiles with tier, segment, visits, spend tracking
 - `activity`: Visit and reward activity log per customer
 - `tiers`: Loyalty tier definitions with thresholds and benefits
+- `restaurant_tables`: Table configuration (name, capacity, location, status)
+- `table_sessions`: Active seating sessions linking tables to customers
+- `feedback`: Customer reviews with ratings, channels, and comments
 
 ## External Dependencies
 
