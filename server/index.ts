@@ -87,6 +87,6 @@ app.use((req, res, next) => {
   const port = Number(process.env.PORT) || 8080;
 
   httpServer.listen(port, "0.0.0.0", () => {
-    log(`Servidor iniciado en puerto ${port}`);
+    log(`Servidor escuchando en puerto ${port}`);
   });
 })();
