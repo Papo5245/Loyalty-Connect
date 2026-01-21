@@ -187,3 +187,39 @@ export const feedbackApi = {
     }),
   getStats: () => fetchApi<FeedbackStats>("/feedback/stats"),
 };
+
+// Wallets
+export interface Wallet {
+  id: number;
+  customerId: number;
+  balancePuntos: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WalletTransaction {
+  id: number;
+  walletId: number;
+  type: string;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+}
+
+export const walletsApi = {
+  getAll: () => fetchApi<Wallet[]>("/wallets"),
+  getOne: (id: number) => fetchApi<Wallet>(`/wallets/${id}`),
+  getByCustomerId: (customerId: number) => fetchApi<Wallet | null>(`/wallets/customer/${customerId}`),
+  create: (data: Omit<Wallet, "id" | "createdAt" | "updatedAt">) =>
+    fetchApi<Wallet>("/wallets", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getTransactions: (walletId: number) => fetchApi<WalletTransaction[]>(`/wallets/${walletId}/transactions`),
+  createTransaction: (walletId: number, data: Omit<WalletTransaction, "id" | "walletId" | "createdAt">) =>
+    fetchApi<WalletTransaction>(`/wallets/${walletId}/transactions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};

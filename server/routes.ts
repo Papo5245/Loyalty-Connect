@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertActivitySchema, insertTierSchema, insertRestaurantTableSchema, insertTableSessionSchema, insertFeedbackSchema } from "@shared/schema";
+import { insertCustomerSchema, insertActivitySchema, insertTierSchema, insertRestaurantTableSchema, insertTableSessionSchema, insertFeedbackSchema, insertWalletSchema, insertWalletTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 
 const idParamSchema = z.coerce.number().int().positive();
@@ -299,6 +299,92 @@ export async function registerRoutes(
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch feedback stats" });
+    }
+  });
+
+  // Wallets
+  app.get("/api/wallets", async (req, res) => {
+    try {
+      const walletsList = await storage.getWallets();
+      res.json(walletsList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch wallets" });
+    }
+  });
+
+  app.get("/api/wallets/:id", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid wallet ID" });
+      }
+      const wallet = await storage.getWallet(parseResult.data);
+      if (!wallet) {
+        return res.status(404).json({ error: "Wallet not found" });
+      }
+      res.json(wallet);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch wallet" });
+    }
+  });
+
+  app.get("/api/wallets/customer/:customerId", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.customerId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const wallet = await storage.getWalletByCustomerId(parseResult.data);
+      res.json(wallet || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch wallet" });
+    }
+  });
+
+  app.post("/api/wallets", async (req, res) => {
+    try {
+      const data = insertWalletSchema.parse(req.body);
+      const wallet = await storage.createWallet(data);
+      res.status(201).json(wallet);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create wallet" });
+    }
+  });
+
+  // Wallet Transactions
+  app.get("/api/wallets/:walletId/transactions", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.walletId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid wallet ID" });
+      }
+      const transactions = await storage.getWalletTransactions(parseResult.data);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  app.post("/api/wallets/:walletId/transactions", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.walletId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid wallet ID" });
+      }
+      const data = insertWalletTransactionSchema.parse({
+        ...req.body,
+        walletId: parseResult.data,
+      });
+      const transaction = await storage.createWalletTransaction(data);
+      res.status(201).json(transaction);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create transaction" });
     }
   });
 

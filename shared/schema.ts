@@ -68,6 +68,24 @@ export const feedback = pgTable("feedback", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const wallets = pgTable("wallets", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").notNull().unique(),
+  balancePuntos: integer("balance_puntos").default(0).notNull(),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const walletTransactions = pgTable("wallet_transactions", {
+  id: serial("id").primaryKey(),
+  walletId: integer("wallet_id").notNull(),
+  type: text("type").notNull(),
+  amount: integer("amount").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -79,6 +97,8 @@ export const insertTierSchema = createInsertSchema(tiers).omit({ id: true });
 export const insertRestaurantTableSchema = createInsertSchema(restaurantTables).omit({ id: true });
 export const insertTableSessionSchema = createInsertSchema(tableSessions).omit({ id: true, startedAt: true, endedAt: true });
 export const insertFeedbackSchema = createInsertSchema(feedback).omit({ id: true, createdAt: true });
+export const insertWalletSchema = createInsertSchema(wallets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWalletTransactionSchema = createInsertSchema(walletTransactions).omit({ id: true, createdAt: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -94,3 +114,7 @@ export type TableSession = typeof tableSessions.$inferSelect;
 export type InsertTableSession = z.infer<typeof insertTableSessionSchema>;
 export type Feedback = typeof feedback.$inferSelect;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+export type Wallet = typeof wallets.$inferSelect;
+export type InsertWallet = z.infer<typeof insertWalletSchema>;
+export type WalletTransaction = typeof walletTransactions.$inferSelect;
+export type InsertWalletTransaction = z.infer<typeof insertWalletTransactionSchema>;

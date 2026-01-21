@@ -6,6 +6,7 @@ import Tiers from "@/pages/Tiers";
 import Campaigns from "@/pages/Campaigns";
 import Tables from "@/pages/Tables";
 import Feedback from "@/pages/Feedback";
+import Wallets from "@/pages/Wallets";
 import Settings from "@/pages/Settings";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -17,6 +18,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/customers" component={Customers} />
+      <Route path="/wallets" component={Wallets} />
       <Route path="/tables" component={Tables} />
       <Route path="/feedback" component={Feedback} />
       <Route path="/analytics" component={Analytics} />

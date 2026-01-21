@@ -6,7 +6,9 @@ import {
   type RestaurantTable, type InsertRestaurantTable,
   type TableSession, type InsertTableSession,
   type Feedback, type InsertFeedback,
-  users, customers, activity, tiers, restaurantTables, tableSessions, feedback
+  type Wallet, type InsertWallet,
+  type WalletTransaction, type InsertWalletTransaction,
+  users, customers, activity, tiers, restaurantTables, tableSessions, feedback, wallets, walletTransactions
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
@@ -56,6 +58,15 @@ export interface IStorage {
     loyaltyVisits: number;
     rewardsRedeemed: number;
   }>;
+  
+  getWallets(): Promise<Wallet[]>;
+  getWallet(id: number): Promise<Wallet | undefined>;
+  getWalletByCustomerId(customerId: number): Promise<Wallet | undefined>;
+  createWallet(wallet: InsertWallet): Promise<Wallet>;
+  updateWalletBalance(id: number, amount: number, type: 'add' | 'subtract'): Promise<Wallet | undefined>;
+  
+  getWalletTransactions(walletId: number): Promise<WalletTransaction[]>;
+  createWalletTransaction(transaction: InsertWalletTransaction): Promise<WalletTransaction>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -255,6 +266,55 @@ export class DatabaseStorage implements IStorage {
       loyaltyVisits: visitsResult?.total || 0,
       rewardsRedeemed: rewardsResult?.count || 0,
     };
+  }
+
+  async getWallets(): Promise<Wallet[]> {
+    return db.select().from(wallets).orderBy(desc(wallets.id));
+  }
+
+  async getWallet(id: number): Promise<Wallet | undefined> {
+    const [wallet] = await db.select().from(wallets).where(eq(wallets.id, id));
+    return wallet;
+  }
+
+  async getWalletByCustomerId(customerId: number): Promise<Wallet | undefined> {
+    const [wallet] = await db.select().from(wallets).where(eq(wallets.customerId, customerId));
+    return wallet;
+  }
+
+  async createWallet(insertWallet: InsertWallet): Promise<Wallet> {
+    const [wallet] = await db.insert(wallets).values(insertWallet).returning();
+    return wallet;
+  }
+
+  async updateWalletBalance(id: number, amount: number, type: 'add' | 'subtract'): Promise<Wallet | undefined> {
+    const operation = type === 'add' 
+      ? sql`${wallets.balancePuntos} + ${amount}`
+      : sql`${wallets.balancePuntos} - ${amount}`;
+    
+    const [wallet] = await db.update(wallets)
+      .set({ 
+        balancePuntos: operation,
+        updatedAt: new Date()
+      })
+      .where(eq(wallets.id, id))
+      .returning();
+    return wallet;
+  }
+
+  async getWalletTransactions(walletId: number): Promise<WalletTransaction[]> {
+    return db.select().from(walletTransactions)
+      .where(eq(walletTransactions.walletId, walletId))
+      .orderBy(desc(walletTransactions.createdAt));
+  }
+
+  async createWalletTransaction(insertTransaction: InsertWalletTransaction): Promise<WalletTransaction> {
+    const [transaction] = await db.insert(walletTransactions).values(insertTransaction).returning();
+    
+    const type = insertTransaction.type === 'credit' ? 'add' : 'subtract';
+    await this.updateWalletBalance(insertTransaction.walletId, insertTransaction.amount, type);
+    
+    return transaction;
   }
 }
 
