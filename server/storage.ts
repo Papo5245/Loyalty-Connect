@@ -8,7 +8,11 @@ import {
   type Feedback, type InsertFeedback,
   type Wallet, type InsertWallet,
   type WalletTransaction, type InsertWalletTransaction,
-  users, customers, activity, tiers, restaurantTables, tableSessions, feedback, wallets, walletTransactions
+  type Tag, type InsertTag,
+  type CustomerTag, type InsertCustomerTag,
+  type Order, type InsertOrder,
+  type OrderItem, type InsertOrderItem,
+  users, customers, activity, tiers, restaurantTables, tableSessions, feedback, wallets, walletTransactions, tags, customerTags, orders, orderItems
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and } from "drizzle-orm";
@@ -315,6 +319,125 @@ export class DatabaseStorage implements IStorage {
     await this.updateWalletBalance(insertTransaction.walletId, insertTransaction.amount, type);
     
     return transaction;
+  }
+
+  // Tags
+  async getTags(): Promise<Tag[]> {
+    return db.select().from(tags).orderBy(tags.name);
+  }
+
+  async getTag(id: number): Promise<Tag | undefined> {
+    const [tag] = await db.select().from(tags).where(eq(tags.id, id));
+    return tag;
+  }
+
+  async createTag(insertTag: InsertTag): Promise<Tag> {
+    const [tag] = await db.insert(tags).values(insertTag).returning();
+    return tag;
+  }
+
+  async updateTag(id: number, data: Partial<InsertTag>): Promise<Tag | undefined> {
+    const [tag] = await db.update(tags).set(data).where(eq(tags.id, id)).returning();
+    return tag;
+  }
+
+  async deleteTag(id: number): Promise<boolean> {
+    await db.delete(customerTags).where(eq(customerTags.tagId, id));
+    const result = await db.delete(tags).where(eq(tags.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Customer Tags
+  async getCustomerTags(customerId: number): Promise<Tag[]> {
+    const result = await db
+      .select({ tag: tags })
+      .from(customerTags)
+      .innerJoin(tags, eq(customerTags.tagId, tags.id))
+      .where(eq(customerTags.customerId, customerId));
+    return result.map(r => r.tag);
+  }
+
+  async addTagToCustomer(customerId: number, tagId: number): Promise<CustomerTag> {
+    const [ct] = await db.insert(customerTags).values({ customerId, tagId }).returning();
+    return ct;
+  }
+
+  async removeTagFromCustomer(customerId: number, tagId: number): Promise<boolean> {
+    const result = await db.delete(customerTags)
+      .where(and(eq(customerTags.customerId, customerId), eq(customerTags.tagId, tagId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Orders
+  async getCustomerOrders(customerId: number): Promise<Order[]> {
+    return db.select().from(orders)
+      .where(eq(orders.customerId, customerId))
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async getOrder(id: number): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order;
+  }
+
+  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+    const [order] = await db.insert(orders).values(insertOrder).returning();
+    return order;
+  }
+
+  async getOrderItems(orderId: number): Promise<OrderItem[]> {
+    return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async createOrderItem(insertItem: InsertOrderItem): Promise<OrderItem> {
+    const [item] = await db.insert(orderItems).values(insertItem).returning();
+    return item;
+  }
+
+  async createOrderWithItems(orderData: InsertOrder, items: Omit<InsertOrderItem, 'orderId'>[]): Promise<Order> {
+    const [order] = await db.insert(orders).values(orderData).returning();
+    
+    if (items.length > 0) {
+      const orderItemsData = items.map(item => ({ ...item, orderId: order.id }));
+      await db.insert(orderItems).values(orderItemsData);
+    }
+    
+    // Update customer spend and visits
+    await db.update(customers)
+      .set({ 
+        spend: sql`${customers.spend} + ${orderData.total}`,
+        visits: sql`${customers.visits} + 1`,
+        lastVisit: new Date()
+      })
+      .where(eq(customers.id, orderData.customerId));
+    
+    return order;
+  }
+
+  async getCustomerStats(customerId: number): Promise<{
+    totalSpend: number;
+    orderCount: number;
+    visits: number;
+    avgRating: number;
+  }> {
+    const [spendResult] = await db.select({
+      total: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+      count: sql<number>`COUNT(*)`
+    }).from(orders).where(eq(orders.customerId, customerId));
+
+    const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+    
+    const [ratingResult] = await db.select({
+      avg: sql<string>`COALESCE(AVG(${feedback.rating}), 0)`
+    }).from(feedback).where(eq(feedback.customerId, customerId));
+
+    return {
+      totalSpend: parseFloat(spendResult?.total || "0"),
+      orderCount: spendResult?.count || 0,
+      visits: customer?.visits || 0,
+      avgRating: parseFloat(ratingResult?.avg || "0"),
+    };
   }
 }
 
