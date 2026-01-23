@@ -13,12 +13,14 @@ import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customersApi, type Customer } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { CustomerProfile } from "@/components/CustomerProfile";
 
 export default function Customers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSegment, setActiveSegment] = useState("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", tier: "Silver", segment: "Occasional" });
   
@@ -107,6 +109,11 @@ export default function Customers() {
       segment: customer.segment,
     });
     setIsEditOpen(true);
+  };
+
+  const openProfileDialog = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsProfileOpen(true);
   };
 
   const segments = useMemo(() => {
@@ -410,6 +417,10 @@ export default function Customers() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openProfileDialog(customer)} data-testid={`view-profile-${customer.id}`}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Ver Perfil
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEditDialog(customer)}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Edit
@@ -439,6 +450,15 @@ export default function Customers() {
           )}
         </CardContent>
       </Card>
+
+      {/* Customer Profile Modal */}
+      {selectedCustomer && (
+        <CustomerProfile
+          customer={selectedCustomer}
+          open={isProfileOpen}
+          onOpenChange={setIsProfileOpen}
+        />
+      )}
     </Layout>
   );
 }

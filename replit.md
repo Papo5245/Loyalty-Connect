@@ -55,7 +55,7 @@ Preferred communication style: Simple, everyday language.
 - **Component Aliases**: Path aliases (`@/`, `@shared/`) for clean imports
 
 ### Database Schema
-Seven main tables:
+Thirteen main tables:
 - `users`: Authentication (id, username, password)
 - `customers`: Customer profiles with tier, segment, visits, spend tracking
 - `activity`: Visit and reward activity log per customer
@@ -63,6 +63,12 @@ Seven main tables:
 - `restaurant_tables`: Table configuration (name, capacity, location, status)
 - `table_sessions`: Active seating sessions linking tables to customers
 - `feedback`: Customer reviews with ratings, channels, and comments
+- `wallets`: Customer loyalty point wallets with balance tracking
+- `wallet_transactions`: Credit/debit transactions for wallets
+- `tags`: Customizable tags for labeling customers (VIP, Allergy, Big Spender, etc.)
+- `customer_tags`: Many-to-many relationship linking customers to tags
+- `orders`: Customer order records with total amounts
+- `order_items`: Individual items within orders (name, quantity, price)
 
 ## External Dependencies
 

@@ -538,7 +538,11 @@ export async function registerRoutes(
       }
       const { items, total } = req.body;
       const orderData = insertOrderSchema.parse({ customerId: parseResult.data, total });
-      const order = await storage.createOrderWithItems(orderData, items || []);
+      
+      const itemSchema = insertOrderItemSchema.omit({ orderId: true });
+      const validatedItems = (items || []).map((item: unknown) => itemSchema.parse(item));
+      
+      const order = await storage.createOrderWithItems(orderData, validatedItems);
       res.status(201).json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
