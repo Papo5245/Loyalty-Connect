@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertActivitySchema, insertTierSchema, insertRestaurantTableSchema, insertTableSessionSchema, insertFeedbackSchema, insertWalletSchema, insertWalletTransactionSchema } from "@shared/schema";
+import { insertCustomerSchema, insertActivitySchema, insertTierSchema, insertRestaurantTableSchema, insertTableSessionSchema, insertFeedbackSchema, insertWalletSchema, insertWalletTransactionSchema, insertTagSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import { z } from "zod";
 
 const idParamSchema = z.coerce.number().int().positive();
@@ -385,6 +385,166 @@ export async function registerRoutes(
         return res.status(400).json({ error: error.errors });
       }
       res.status(500).json({ error: "Failed to create transaction" });
+    }
+  });
+
+  // Tags
+  app.get("/api/tags", async (req, res) => {
+    try {
+      const tagsList = await storage.getTags();
+      res.json(tagsList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tags" });
+    }
+  });
+
+  app.post("/api/tags", async (req, res) => {
+    try {
+      const data = insertTagSchema.parse(req.body);
+      const tag = await storage.createTag(data);
+      res.status(201).json(tag);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create tag" });
+    }
+  });
+
+  app.patch("/api/tags/:id", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid tag ID" });
+      }
+      const data = insertTagSchema.partial().parse(req.body);
+      const tag = await storage.updateTag(parseResult.data, data);
+      if (!tag) {
+        return res.status(404).json({ error: "Tag not found" });
+      }
+      res.json(tag);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update tag" });
+    }
+  });
+
+  app.delete("/api/tags/:id", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid tag ID" });
+      }
+      const deleted = await storage.deleteTag(parseResult.data);
+      if (!deleted) {
+        return res.status(404).json({ error: "Tag not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete tag" });
+    }
+  });
+
+  // Customer Tags
+  app.get("/api/customers/:customerId/tags", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.customerId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const customerTagsList = await storage.getCustomerTags(parseResult.data);
+      res.json(customerTagsList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customer tags" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/tags/:tagId", async (req, res) => {
+    try {
+      const customerResult = idParamSchema.safeParse(req.params.customerId);
+      const tagResult = idParamSchema.safeParse(req.params.tagId);
+      if (!customerResult.success || !tagResult.success) {
+        return res.status(400).json({ error: "Invalid IDs" });
+      }
+      const ct = await storage.addTagToCustomer(customerResult.data, tagResult.data);
+      res.status(201).json(ct);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add tag to customer" });
+    }
+  });
+
+  app.delete("/api/customers/:customerId/tags/:tagId", async (req, res) => {
+    try {
+      const customerResult = idParamSchema.safeParse(req.params.customerId);
+      const tagResult = idParamSchema.safeParse(req.params.tagId);
+      if (!customerResult.success || !tagResult.success) {
+        return res.status(400).json({ error: "Invalid IDs" });
+      }
+      const deleted = await storage.removeTagFromCustomer(customerResult.data, tagResult.data);
+      if (!deleted) {
+        return res.status(404).json({ error: "Tag not found on customer" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove tag from customer" });
+    }
+  });
+
+  // Customer Stats
+  app.get("/api/customers/:customerId/stats", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.customerId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const stats = await storage.getCustomerStats(parseResult.data);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customer stats" });
+    }
+  });
+
+  // Customer Orders
+  app.get("/api/customers/:customerId/orders", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.customerId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const ordersList = await storage.getCustomerOrders(parseResult.data);
+      res.json(ordersList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  app.get("/api/orders/:id/items", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.id);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid order ID" });
+      }
+      const items = await storage.getOrderItems(parseResult.data);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch order items" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/orders", async (req, res) => {
+    try {
+      const parseResult = idParamSchema.safeParse(req.params.customerId);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid customer ID" });
+      }
+      const { items, total } = req.body;
+      const orderData = insertOrderSchema.parse({ customerId: parseResult.data, total });
+      const order = await storage.createOrderWithItems(orderData, items || []);
+      res.status(201).json(order);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create order" });
     }
   });
 

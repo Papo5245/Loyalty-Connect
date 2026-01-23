@@ -223,3 +223,78 @@ export const walletsApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// Tags
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  category: string;
+}
+
+export const tagsApi = {
+  getAll: () => fetchApi<Tag[]>("/tags"),
+  create: (data: Omit<Tag, "id">) =>
+    fetchApi<Tag>("/tags", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<Tag>) =>
+    fetchApi<Tag>(`/tags/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    fetchApi<{ success: boolean }>(`/tags/${id}`, { method: "DELETE" }),
+};
+
+// Customer Tags
+export const customerTagsApi = {
+  getCustomerTags: (customerId: number) => fetchApi<Tag[]>(`/customers/${customerId}/tags`),
+  addTag: (customerId: number, tagId: number) =>
+    fetchApi<{ id: number; customerId: number; tagId: number }>(`/customers/${customerId}/tags/${tagId}`, {
+      method: "POST",
+    }),
+  removeTag: (customerId: number, tagId: number) =>
+    fetchApi<{ success: boolean }>(`/customers/${customerId}/tags/${tagId}`, {
+      method: "DELETE",
+    }),
+};
+
+// Customer Stats
+export interface CustomerStats {
+  totalSpend: number;
+  orderCount: number;
+  visits: number;
+  avgRating: number;
+}
+
+export const customerStatsApi = {
+  getStats: (customerId: number) => fetchApi<CustomerStats>(`/customers/${customerId}/stats`),
+};
+
+// Orders
+export interface Order {
+  id: number;
+  customerId: number;
+  total: string;
+  createdAt: string;
+}
+
+export interface OrderItem {
+  id: number;
+  orderId: number;
+  itemName: string;
+  quantity: number;
+  price: string;
+}
+
+export const ordersApi = {
+  getCustomerOrders: (customerId: number) => fetchApi<Order[]>(`/customers/${customerId}/orders`),
+  getOrderItems: (orderId: number) => fetchApi<OrderItem[]>(`/orders/${orderId}/items`),
+  createOrder: (customerId: number, data: { total: string; items: Omit<OrderItem, "id" | "orderId">[] }) =>
+    fetchApi<Order>(`/customers/${customerId}/orders`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
